@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/creo-example",
+    "crates/creo-rs",
+    "crates/creo-sys",
+]

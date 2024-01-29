@@ -1,0 +1,15 @@
+[package]
+name = "creo-example"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+creo = { path = "../creo-rs" }
+dirs-next = "2.0.0"
+log = "0.4.20"
+log4rs = "1.2.0"

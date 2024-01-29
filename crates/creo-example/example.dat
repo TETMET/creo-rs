@@ -1,0 +1,7 @@
+name rust-example
+startup dll
+exec_file C:\tetmet\creo-rs\crates\creo-example\target\debug\creo_example.dll
+text_dir C:\tetmet\creo-rs\crates\creo-example\text
+allow_stop true
+delay_start false
+end
