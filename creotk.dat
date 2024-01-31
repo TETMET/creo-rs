@@ -1,0 +1,7 @@
+name   aslm
+startup dll
+exec_file C:\projects\aslm-creo\build\Debug\aslm.dll
+text_dir C:\projects\aslm-creo\text
+allow_stop true
+delay_start false
+end
