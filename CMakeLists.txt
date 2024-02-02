@@ -18,41 +18,18 @@ cmake_print_variables(
     CREO_TOOLKIT_LIB
 )
 
-# pt_utils
-add_library(pt_utils STATIC
-    src/utils/pt_utils/pt_utils.cpp
-)
-target_include_directories(pt_utils PUBLIC includes ${CREO_TOOLKIT_INCLUDE})
-set_property(TARGET pt_utils PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded")
-
-# pt_section
-add_library(pt_section STATIC
-    src/utils/pt_section/pt_section.cpp
-)
-target_include_directories(pt_section PUBLIC includes ${CREO_TOOLKIT_INCLUDE})
-set_property(TARGET pt_section PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded")
-
-# pt_select        
-add_library(pt_select STATIC
-    src/utils/pt_select/pt_select.cpp
-)
-target_include_directories(pt_select PUBLIC includes ${CREO_TOOLKIT_INCLUDE})
-set_property(TARGET pt_select PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded")
-
 add_library(aslm SHARED
     src/main.cpp
+    src/utils/PTApplsUnicodeUtils.cpp
+    src/utils/TestError.cpp
+    src/utils/Testrunmode.cpp
+    src/utils/UtilString.cpp
 )
 target_include_directories(aslm PUBLIC includes ${CREO_TOOLKIT_INCLUDE})
 set_property(TARGET aslm PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
-target_link_libraries(aslm PUBLIC 
-    pt_section
-    pt_utils
-    pt_select
+target_link_libraries(aslm PUBLIC
     ${CREO_TOOLKIT_LIB}\\protk_dll_NU.lib
     ${CREO_TOOLKIT_LIB}\\ucore.lib 
     ${CREO_TOOLKIT_LIB}\\udata.lib
