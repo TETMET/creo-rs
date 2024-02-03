@@ -22,7 +22,9 @@
 #include <ProDtmPnt.h>
 #include <ProAxis.h>
 
-#include "TestError.h"
+#include "utils/TestError.h"
+#include <vector>
+#include "memory/CreoMemory.h"
 
 using namespace std;
 
@@ -126,52 +128,9 @@ ProError VisitSurface(
     ProError filter_status, /* ignored */
     ProAppData data)
 {
-    ProError status;
-    ProSurface **p_surfaces = (ProSurface **)data;
-    ProGeomitemdata *geomitemdata;
-    int surface_id;
-    ProSurfaceIdGet(surface, &surface_id);
-    cout << "Surface ID " << surface_id << endl;
-    status = ProSurfaceDataGet(surface, &geomitemdata);
-    ERROR_CHECK("ProSurfaceDataGet", "VisitSurface", status);
-    if (PRO_TK_NO_ERROR != status)
-        return status;
-    if (geomitemdata == NULL)
-    {
-        return PRO_TK_NO_ERROR;
-    }
-    double u_min = geomitemdata->data.p_surface_data->uv_min[0];
-    double v_min = geomitemdata->data.p_surface_data->uv_min[1];
-    double u_max = geomitemdata->data.p_surface_data->uv_max[0];
-    double v_max = geomitemdata->data.p_surface_data->uv_max[1];
-    cout << "Surface uv_min: " << u_min << ", " << v_min << endl;
-    cout << "Surface uv_max: " << u_max << ", " << v_max << endl;
-    status = ProArrayObjectAdd((ProArray *)p_surfaces, PRO_VALUE_UNUSED, 1, &surface);
-
-    // WARNING: ALSO A MEMORY LEAK
-    ProGeomitemdataFree(&geomitemdata);
-    return status;
-}
-
-/**
- * Collect all surfaces from a solid
- */
-ProError UtilCollectSurfaces(
-    ProSolid solid,
-    ProSurface **pp_surfaces /* Out: ProArray with collected surfaces.
-                  The function allocates memory
-                  for this argument, but you must
-                  free it. To free the memory,
-                  call the function ProArrayFree()*/
-)
-{
-    ProError status;
-    status = ProArrayAlloc(0, sizeof(ProSurface), 1, (ProArray *)pp_surfaces);
-    ERROR_CHECK("ProArrayAlloc", "UtilCollectSurfaces", status);
-    if (PRO_TK_NO_ERROR != status)
-        return status;
-    status = ProSolidSurfaceVisit(solid, (ProSurfaceVisitAction)VisitSurface, (ProSurfaceFilterAction)NULL, (ProAppData)pp_surfaces);
-    return status;
+    vector<ProSurface> *surfaces = (vector<ProSurface> *)data;
+    surfaces->push_back(surface);
+    return PRO_TK_NO_ERROR;
 }
 
 ProError VisitFeature(
@@ -363,7 +322,8 @@ ProError FillBCC(ProSolid extrusion_solid, ProSurface extrusion_surface, ProAxis
     ProErrorlist errors;
     ProFeature feature;
 
-    ProElement pro_e_feature_tree;
+    // Test for C++ -like elements
+    pro_element pro_e_feature_tree;
     ProElement pro_e_feature_type;
     ProElement pro_e_dpoint;
     ProElement pro_e_dpoint_type;
@@ -410,10 +370,10 @@ ProError FillBCC(ProSolid extrusion_solid, ProSurface extrusion_surface, ProAxis
             offsets[i] = max(offsets[i] + 50, axis_lengths[i]);
         }
         // If all offsets are at the max, abort
-        if (offsets[0] >= axis_lengths[0] && 
-            offsets[1] >= axis_lengths[1] && 
-            offsets[2] >= axis_lengths[2] && 
-            offsets[3] >= axis_lengths[3] && 
+        if (offsets[0] >= axis_lengths[0] &&
+            offsets[1] >= axis_lengths[1] &&
+            offsets[2] >= axis_lengths[2] &&
+            offsets[3] >= axis_lengths[3] &&
             offsets[4] >= axis_lengths[4])
         {
             filled = true;
@@ -444,6 +404,7 @@ ProError FillBCC(ProSolid extrusion_solid, ProSurface extrusion_surface, ProAxis
     if (PRO_TK_NO_ERROR != status)
         return status;
 
+    // NOTE: This is a memory leak for early exits
     status = ProArrayFree((ProArray *)&opts);
     status = ProElementFree(&pro_e_feature_tree);
     return status;
@@ -547,14 +508,17 @@ ProError FetchDatumPointsFromSolid()
     cout << "ID is " << id << endl;
 
     // Find the surfaces for the extrusion solid
-    ProSurface *p_surfaces = NULL;
-    int n_surfaces;
-    status = UtilCollectSurfaces(solid, &p_surfaces);
+    shared_ptr<vector<ProSurface>> surfaces(new vector<ProSurface>());
+    status = ProSolidSurfaceVisit(solid, (ProSurfaceVisitAction)VisitSurface, (ProSurfaceFilterAction)NULL, (ProAppData)surfaces.get());
     ERROR_CHECK("ProSolidSurfaceVisit", "FetchDatumPoints", status);
     if (PRO_TK_NO_ERROR != status)
         return status;
-    status = ProArraySizeGet((ProArray)p_surfaces, &n_surfaces);
-    cout << "Solid has " << n_surfaces << " surfaces" << endl;
+    if ((*surfaces).size() == 0)
+    {
+        cout << "No surfaces found" << endl;
+        return PRO_TK_NO_ERROR;
+    }
+    cout << "Solid has " << (*surfaces).size() << " surfaces" << endl;
 
     // Find all features in the extrusion solid
     ProFeature *p_features = NULL;
@@ -570,10 +534,9 @@ ProError FetchDatumPointsFromSolid()
     // 1. Cell is a BCC
     // 2. Cell has 5 axis and ordered by left top corner, right top corner, right bottom corner, left bottom corner, middle
     // 3. The middle axis is slightly offsetted to create the BCC
-    FillBCC(solid, p_surfaces[0], p_axis);
+    FillBCC(solid, (*surfaces)[0], p_axis);
 
     // DANGER: This is a memory leak if the function exits early, we need to make it global or use C++ smart pointers
-    ProArrayFree((ProArray *)&p_surfaces);
     ProArrayFree((ProArray *)&p_axis);
     ProArrayFree((ProArray *)&p_dims);
     ProArrayFree((ProArray *)&parent_ids);

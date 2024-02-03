@@ -13,9 +13,9 @@ C System includes
 /*--------------------------------------------------------------------*\
 Application includes
 \*--------------------------------------------------------------------*/
-#include "UtilString.h"
-#include "TestError.h"
-#include "PTApplsUnicodeUtils.h"
+#include "utils/UtilString.h"
+#include "utils/TestError.h"
+#include "utils/PTApplsUnicodeUtils.h"
 /*--------------------------------------------------------------------*\
 Application macros
 \*--------------------------------------------------------------------*/

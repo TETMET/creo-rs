@@ -8,8 +8,8 @@ Pro/TOOLKIT includes
 /*--------------------------------------------------------------------*\
 Application includes
 \*--------------------------------------------------------------------*/
-#include "TestError.h"
-#include "UtilString.h"
+#include "utils/TestError.h"
+#include "utils/UtilString.h"
 
 #include <stdlib.h>
 
