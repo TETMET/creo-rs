@@ -1,0 +1,17 @@
+[package]
+name = "aslm-creo"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[build-dependencies]
+bindgen = "0.69.4"
+
+[dependencies]
+dirs-next = "2.0.0"
+log = "0.4.20"
+log4rs = "1.2.0"

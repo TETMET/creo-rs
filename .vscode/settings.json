@@ -10,5 +10,8 @@
         "xstring": "cpp",
         "utility": "cpp",
         "ostream": "cpp"
+    },
+    "[rust]": {
+        "editor.rulers": [100]
     }
 }
