@@ -1,18 +1,6 @@
 use crate::creo::creo::ffi;
 
-pub struct ProReference {
-    pub pro_reference_ptr: ffi::ProReference,
-}
-
-impl ProReference {
-    pub fn new() -> ProReference {
-        unsafe {
-            let mut pro_reference_ptr = std::mem::zeroed();
-            ffi::ProReferenceAlloc(&mut pro_reference_ptr);
-            ProReference { pro_reference_ptr }
-        }
-    }
-
+pub trait ProReferenceInterface {
     /// Sets the referenced model item and path in the reference handle.
     ///
     /// # Arguments
@@ -24,7 +12,38 @@ impl ProReference {
     ///
     /// * `PRO_TK_NO_ERROR` - The function succeeded.
     /// * `PRO_TK_BAD_INPUTS` - One or more arguments was invalid.
-    pub fn set(
+    fn set(
+        &self,
+        path: Option<*mut ffi::ProAsmcomppath>,
+        item: Option<*mut ffi::ProModelitem>,
+    ) -> Result<(), ffi::ProError>;
+
+    /// Gets the item id of a reference handle.
+    ///
+    /// # Errors
+    ///
+    /// * `PRO_TK_NO_ERROR` - The function succeeded.
+    /// * `PRO_TK_BAD_INPUTS` - One or more arguments was invalid.
+    /// * `PRO_TK_EMPTY` - This value is not set in the reference.
+    fn id_get(&self) -> i32;
+}
+
+impl ProReferenceInterface for ProReference {
+    fn set(
+        &self,
+        path: Option<*mut ffi::ProAsmcomppath>,
+        item: Option<*mut ffi::ProModelitem>,
+    ) -> Result<(), ffi::ProError> {
+        self.pro_reference_ptr.set(path, item)
+    }
+
+    fn id_get(&self) -> i32 {
+        self.pro_reference_ptr.id_get()
+    }
+}
+
+impl ProReferenceInterface for ffi::ProReference {
+    fn set(
         &self,
         path: Option<*mut ffi::ProAsmcomppath>,
         item: Option<*mut ffi::ProModelitem>,
@@ -38,7 +57,7 @@ impl ProReference {
                 Some(item) => item,
                 None => std::mem::zeroed(),
             };
-            let status = ffi::ProReferenceSet(self.pro_reference_ptr, path_ptr, item_ptr);
+            let status = ffi::ProReferenceSet(*self, path_ptr, item_ptr);
             if status != ffi::ProErrors_PRO_TK_NO_ERROR {
                 return Err(status);
             }
@@ -46,20 +65,25 @@ impl ProReference {
         }
     }
 
-    /// Gets the item id of a reference handle.
-    ///
-    /// # Errors
-    ///
-    /// * `PRO_TK_NO_ERROR` - The function succeeded.
-    /// * `PRO_TK_BAD_INPUTS` - One or more arguments was invalid.
-    /// * `PRO_TK_EMPTY` - This value is not set in the reference.
-    pub fn id_get(
-        &self,
-    ) -> i32 {
+    fn id_get(&self) -> i32 {
         unsafe {
             let mut id = 0;
-            ffi::ProReferenceIdGet(self.pro_reference_ptr, &mut id);
+            ffi::ProReferenceIdGet(*self, &mut id);
             id
+        }
+    }
+}
+
+pub struct ProReference {
+    pub pro_reference_ptr: ffi::ProReference,
+}
+
+impl ProReference {
+    pub fn new() -> ProReference {
+        unsafe {
+            let mut pro_reference_ptr = std::mem::zeroed();
+            ffi::ProReferenceAlloc(&mut pro_reference_ptr);
+            ProReference { pro_reference_ptr }
         }
     }
 }

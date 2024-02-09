@@ -49,6 +49,11 @@ pub fn pro_menubar_menu_add(
     let untranslated_menu_label_cstr = CString::new(untranslated_menu_label).unwrap();
     let neighbor_cstr = neighbor.map(|s| CString::new(s).unwrap());
     let neighbor_cstr_ptr = neighbor_cstr.map_or(std::ptr::null(), |s| s.as_ptr());
+    let add_after_neighbor = if add_after_neighbor {
+        ffi::ProBooleans_PRO_B_TRUE
+    } else {
+        ffi::ProBooleans_PRO_B_FALSE
+    };
     let mut wfilename = OsString::from(filename).encode_wide().collect::<Vec<_>>();
     wfilename.push(0);
     unsafe {
@@ -56,7 +61,7 @@ pub fn pro_menubar_menu_add(
             menu_name_cstr.as_ptr() as *mut i8,
             untranslated_menu_label_cstr.as_ptr() as *mut i8,
             neighbor_cstr_ptr as *mut i8,
-            add_after_neighbor as i32,
+            add_after_neighbor,
             wfilename.as_mut_ptr(),
         );
         if status != ffi::ProErrors_PRO_TK_NO_ERROR {

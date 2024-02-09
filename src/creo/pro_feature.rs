@@ -1,4 +1,4 @@
-use crate::creo::creo::ffi;
+use crate::{creo::creo::ffi, ProElement};
 
 /// Wrapper type for the [`ffi::ProFeatureCreateOptions`] type.
 /// Used to automatically allocate and free the memory for the feature options.
@@ -40,11 +40,82 @@ impl Drop for ProFeatureCreateOptions {
 }
 
 pub trait ProFeatureInterface {
-    fn type_get(&self) -> Result<ffi::ProFeattype, ffi::ProError>;
-    fn solid_get(&self) -> Result<ffi::ProSolid, ffi::ProError>;
-}
+    /// Creates a copy of the feature element tree. Preferred over
+    /// `ProFeatureElemtreeCreate()` since it provides options to resolve
+    /// the paths of external references of the feature.
+    ///
+    /// # Arguments
+    /// * `path`: The path used to resolve references from the element tree. Can
+    ///   be `None`, but trees which lack the proper external references may
+    ///   not be usable to redefine the feature with external references.
+    /// * `opts`: The options used for the extraction.
+    ///   Pass `PRO_FEAT_EXTRACT_NO_OPTS` for now.
+    ///
+    /// # Errors:
+    /// * `PRO_TK_NO_ERROR`: The function successfully created the feature element
+    ///   tree.
+    /// * `PRO_TK_BAD_INPUTS`: The input argument is invalid.
+    /// * `PRO_TK_INVALID_TYPE`: Extraction of the element tree is not supported
+    ///   for this feature type.
+    fn elemtree_extract(
+        &self,
+        path: Option<*mut ffi::ProAsmcomppath>,
+        opts: ffi::ProFeatureElemtreeExtractOptions,
+    ) -> Result<ProElement, ffi::ProError>;
 
-impl ProFeatureInterface for ffi::ProFeature {
+    /// Visits all the geometry items created by the specified feature.
+    ///
+    /// The valid item types are as follows:
+    /// - `PRO_TYPE_UNUSED` -- Visit all geometry.
+    /// - `PRO_SURFACE` -- Visit surfaces only.
+    /// - `PRO_EDGE` -- Visit edges only.
+    /// - `PRO_QUILT` -- Visit quilts only.
+    /// - `PRO_CURVE` -- Visit curves only.
+    /// - `PRO_POINT` -- Visit points only.
+    /// - `PRO_AXIS` -- Visit axes only.
+    /// - `PRO_CSYS` -- Visit coordinate systems only.
+    /// - `PRO_ANNOTATION_ELEM` -- Visit annotation elements only.
+    ///
+    /// # Arguments
+    ///
+    /// * `item_type` - The type of items to visit.
+    /// * `action` - The visiting function. If it returns anything
+    ///              other than `PRO_TK_NO_ERROR`, visiting stops.
+    /// * `filter` - The filter function. If `None`, all items
+    ///              are visited using the action function.
+    ///              `ProFeatureGeomitemVisit()` will stop visiting if
+    ///              `PRO_TK_GENERAL_ERROR` is returned by the filter.
+    /// * `app_data` - The application data passed to the filter
+    ///                and visiting functions.
+    ///
+    /// # Errors
+    ///
+    /// * `PRO_TK_NO_ERROR` - The function successfully visited all the items.
+    /// * `PRO_TK_BAD_INPUTS` - One or more arguments was invalid.
+    /// * `Other` - The action function returned a value other than
+    ///             `PRO_TK_NO_ERROR` and visiting stopped.
+    ///
+    /// # See Also
+    ///
+    /// `ProFeatureGeomitemVisit()`
+    fn geomitem_visit(
+        &self,
+        item_type: ffi::ProType,
+        action: ffi::ProGeomitemAction,
+        filter: ffi::ProGeomitemFilter,
+        app_data: ffi::ProAppData,
+    ) -> Result<(), ffi::ProError>;
+
+    /// Collect all Geometry items created by the specified feature
+    fn collect_geomitems(
+        &self,
+        item_type: ffi::ProType,
+        filter: ffi::ProGeomitemFilter,
+    ) -> Result<Box<Vec<ffi::ProGeomitem>>, ffi::ProError>;
+
+    /// Retrieves the solid owner of the feature
+    fn solid_get(&self) -> Result<ffi::ProSolid, ffi::ProError>;
+
     /// Retrieves the type of the specified feature.
     ///
     /// # Arguments
@@ -58,19 +129,80 @@ impl ProFeatureInterface for ffi::ProFeature {
     /// # See Also
     ///
     /// ProFeatType.h
-    fn type_get(&self) -> Result<ffi::ProFeattype, ffi::ProError> {
+    fn type_get(&self) -> Result<ffi::ProFeattype, ffi::ProError>;
+}
+
+/// Visit a ProGeomitem and collect the entity in `app_data`.
+/// `app_data` is a Box to a Vec<T> where T is the entity type.
+unsafe extern "C" fn visit_collect_geomitem(
+    p_handle: *mut ffi::ProGeomitem,
+    status: ffi::ProError,
+    app_data: ffi::ProAppData,
+) -> ffi::ProError {
+    // We leak the box since the memory is handled by the caller
+    let vec: &mut Vec<ffi::ProGeomitem> =
+        Box::leak(Box::from_raw(app_data as *mut Vec<ffi::ProGeomitem>));
+    if status == ffi::ProErrors_PRO_TK_NO_ERROR {
+        vec.push(*p_handle);
+    }
+    status
+}
+
+impl ProFeatureInterface for ffi::ProFeature {
+    fn elemtree_extract(
+        &self,
+        path: Option<*mut ffi::ProAsmcomppath>,
+        opts: ffi::ProFeatureElemtreeExtractOptions,
+    ) -> Result<ProElement, ffi::ProError> {
         unsafe {
-            let mut p_type = std::mem::zeroed();
+            let mut elemtree = std::mem::zeroed();
+            let path_ptr = match path {
+                Some(p) => p,
+                None => std::ptr::null_mut(),
+            };
             let mut p_feat = *self;
-            let status = ffi::ProFeatureTypeGet(&mut p_feat, &mut p_type);
+            let status = ffi::ProFeatureElemtreeExtract(&mut p_feat, path_ptr, opts, &mut elemtree);
             if status != ffi::ProErrors_PRO_TK_NO_ERROR {
                 return Err(status);
             }
-            Ok(p_type)
+            Ok(ProElement::from_ptr(elemtree, true))
         }
     }
 
-    /// Retrieves the solid owner of the feature.
+    fn geomitem_visit(
+        &self,
+        item_type: ffi::ProType,
+        action: ffi::ProGeomitemAction,
+        filter: ffi::ProGeomitemFilter,
+        app_data: ffi::ProAppData,
+    ) -> Result<(), ffi::ProError> {
+        unsafe {
+            // Ugly hack, but the generated FFI bindings have a *mut bindings for a reference
+            let refer = self as *const ffi::ProFeature as *mut ffi::ProFeature;
+            let status = ffi::ProFeatureGeomitemVisit(refer, item_type, action, filter, app_data);
+            if status != ffi::ProErrors_PRO_TK_NO_ERROR {
+                return Err(status);
+            }
+            Ok(())
+        }
+    }
+
+    fn collect_geomitems(
+        &self,
+        item_type: ffi::ProType,
+        filter: ffi::ProGeomitemFilter,
+    ) -> Result<Box<Vec<ffi::ProGeomitem>>, ffi::ProError> {
+        let geomitems: Vec<ffi::ProGeomitem> = Vec::new();
+        let app_data_ptr = Box::into_raw(Box::new(geomitems));
+        self.geomitem_visit(
+            item_type,
+            Some(visit_collect_geomitem),
+            filter,
+            app_data_ptr as ffi::ProAppData,
+        )?;
+        unsafe { Ok(Box::from_raw(app_data_ptr)) }
+    }
+
     fn solid_get(&self) -> Result<ffi::ProSolid, ffi::ProError> {
         unsafe {
             let mut solid = std::mem::zeroed();
@@ -80,6 +212,18 @@ impl ProFeatureInterface for ffi::ProFeature {
                 return Err(status);
             }
             Ok(solid)
+        }
+    }
+
+    fn type_get(&self) -> Result<ffi::ProFeattype, ffi::ProError> {
+        unsafe {
+            let mut p_type = std::mem::zeroed();
+            let mut p_feat = *self;
+            let status = ffi::ProFeatureTypeGet(&mut p_feat, &mut p_type);
+            if status != ffi::ProErrors_PRO_TK_NO_ERROR {
+                return Err(status);
+            }
+            Ok(p_type)
         }
     }
 }

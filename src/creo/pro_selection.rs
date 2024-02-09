@@ -3,10 +3,6 @@ use std::ops;
 use crate::creo::creo::ffi;
 
 pub trait ProSelectionInterface {
-    fn modelitem_get(&self) -> Result<ffi::pro_model_item, ffi::ProErrors>;
-}
-
-impl ProSelectionInterface for ffi::ProSelection {
     /// Gets the model item from a selection object.
     ///
     /// # Errors
@@ -14,6 +10,10 @@ impl ProSelectionInterface for ffi::ProSelection {
     /// * `PRO_TK_NO_ERROR` - The function successfully retrieved the model item.
     /// * `PRO_TK_NOT_EXIST` - The model item doesn't exist.
     /// * `PRO_TK_BAD_INPUTS` - The supplied inputs were incorrect.
+    fn modelitem_get(&self) -> Result<ffi::pro_model_item, ffi::ProErrors>;
+}
+
+impl ProSelectionInterface for ffi::ProSelection {
     fn modelitem_get(&self) -> Result<ffi::pro_model_item, ffi::ProErrors> {
         unsafe {
             let mut modelitem = std::mem::zeroed();
@@ -31,7 +31,7 @@ pub struct ProSelections {
     /// The number of selections in the collection.
     pub n_sel: i32,
     /// A raw pointer to an [`ffi::ProArray`] of [`ffi::ProSelection`] structures.
-    selection_ptr: *mut ffi::ProSelection,
+    pro_selection_ptr: *mut ffi::ProSelection,
 }
 
 impl ProSelections {
@@ -39,7 +39,7 @@ impl ProSelections {
     pub fn new(selection: *mut ffi::ProSelection, n_sel: i32) -> ProSelections {
         ProSelections {
             n_sel,
-            selection_ptr: selection,
+            pro_selection_ptr: selection,
         }
     }
 }
@@ -53,7 +53,7 @@ impl ops::Index<usize> for ProSelections {
         if index >= self.n_sel as usize {
             panic!("index out of bounds");
         }
-        unsafe { &*self.selection_ptr.offset(index as isize) }
+        unsafe { &*self.pro_selection_ptr.offset(index as isize) }
     }
 }
 
@@ -93,7 +93,7 @@ pub fn pro_select(
     unsafe {
         let option = std::ffi::CString::new(option).unwrap();
         let p_in_sel_ptr = p_in_sel
-            .map(|s| s.selection_ptr)
+            .map(|s| s.pro_selection_ptr)
             .unwrap_or(std::ptr::null_mut());
         let appl_act_data_ptr = appl_act_data.unwrap_or(std::ptr::null_mut());
         let mut p_sel_array = std::ptr::null_mut();
