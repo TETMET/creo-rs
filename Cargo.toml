@@ -4,3 +4,4 @@ members = [
     "crates/creo-rs",
     "crates/creo-sys",
 ]
+resolver = "2"
