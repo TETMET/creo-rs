@@ -1,5 +1,8 @@
 [package]
 name = "creo"
+description = "Creo Parametric Toolkit API for Rust"
+keywords = ["creo", "toolkit", "cad"]
+license = "MIT"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,4 +10,4 @@ edition = "2021"
 
 [dependencies]
 log = "0.4.20"
-creo-sys = { path = "../creo-sys" }
+creo-sys = { version = "0.1.0", path = "../creo-sys" }
