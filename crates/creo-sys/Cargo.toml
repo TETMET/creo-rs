@@ -1,6 +1,7 @@
 [package]
 name = "creo-sys"
 version = "0.1.0"
+description = "Creo Parametric Toolkit FFI Bindings"
 keywords = ["creo", "toolkit", "cad"]
 license = "MIT"
 edition = "2021"
