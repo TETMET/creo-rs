@@ -2,6 +2,8 @@
 
 This project aims to provide a safe and ergonomic Rust interface to the Creo Parametric Toolkit.
 
+⚠️ This project is in an early stage and the API is not yet stable. ⚠️
+
 ## Prerequisites
 
 - Creo Parametric 10 with Toolkit installed
